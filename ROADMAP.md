@@ -1,6 +1,6 @@
 # Roadmap
 
-最后核对：2026-09-16 14:49（北京时间）。
+最后核对：2026-09-16 16:05（北京时间）。
 
 时间戳取自系统命令：`[System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date),
 'China Standard Time')`。本机 git bash 无时区数据库，`TZ=Asia/Shanghai date` 会返回
@@ -15,6 +15,12 @@ v0.1 已完成并通过软件与实机验收。v0.2 已开始，当前完成智�
 本版本。
 
 ## 已完成
+
+- 2026-09-16 16:05：调整 Goal 文档生命周期：`goals/` 不再被 Git 忽略，开发期间纳入
+  版本控制；全部验收完成并将结果同步到路线图后删除，施工过程继续由 Git 历史保留。
+
+- 2026-09-16 16:01：清理已从 Git 跟踪中移除的 `docs/` 设计文档引用；项目级规范改为
+  由本地 Goal 保存版本设计，`README.md` 与 `ROADMAP.md` 保存可提交的当前事实和进度。
 
 - 2026-09-16 14:49：完成 v0.2 智谱额度接入设计。参考本机 `glm-stats` skill 并执行只读
   真实查询，确认 `TOKENS_LIMIT unit=3` 为 5 小时、`unit=6` 为每周，`percentage` 为已用
@@ -159,7 +165,7 @@ v0.1 已完成并通过软件与实机验收。v0.2 已开始，当前完成智�
   官方接口依据：https://developers.openai.com/codex/app-server/ 。
 - 2026-09-15 20:43：核对当前工作树的待提交集合与 v0.1 提交安全项。
   `git status --porcelain --untracked-files=all` 显示待提交为 `.gitignore`、
-  `AGENTS.md`、`CLAUDE.md`、`ROADMAP.md`、`docs/design.md`、`esp32/`、`pc-agent/`
+  `AGENTS.md`、`CLAUDE.md`、`ROADMAP.md`、本地设计文档、`esp32/`、`pc-agent/`
   与已修改的 `README.md`，分支 `master` 与 `origin/master` 无差异，没有任何提交。
   `git check-ignore -v` 确认 `goals/`、`docs/drafts/`、`__pycache__/`、`.tmp/`、
   `esp32/secrets.h` 均被忽略规则命中。全量扫描排除 `.venv` 与 `.tmp` 后：硬编码 IP
