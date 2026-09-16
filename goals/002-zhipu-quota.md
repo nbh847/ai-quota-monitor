@@ -16,8 +16,10 @@ ESP32-S3 能稳定显示两个服务商各自的数据、异常状态和恢复�
 
 - 本文件是 v0.2 智谱接入的需求、接口与验收设计源。
 - 当前进度与实施清单：[ROADMAP.md](../ROADMAP.md#v02-实施清单)。
-- 查询协议参考本机共享 skill：
-  `~/.agents/skills/glm-stats/scripts/query-usage.mjs`。
+- 查询协议参考已随 Goal 纳入仓库的
+  [`references/glm-query-usage.mjs`](references/glm-query-usage.mjs)。该文件是本机共享
+  `glm-stats` skill 脚本在 2026-09-16 的快照，供另一台电脑离线核对配置发现、端点、
+  请求头和字段映射；无需安装该 skill。
 - 2026-09-16 已通过该 skill 完成真实只读查询，确认：
   - `TOKENS_LIMIT unit=3` 是 5 小时窗口。
   - `TOKENS_LIMIT unit=6` 是每周窗口。
@@ -28,8 +30,8 @@ ESP32-S3 能稳定显示两个服务商各自的数据、异常状态和恢复�
   纳入本 Goal。
 - 智谱 OLED 页首标题冻结为中文「智谱」，不显示英文 `ZHIPU`。只为标题引入所需中文
   字形，其他内容继续使用现有英文字体，避免无关字库扩大固件体积。
-- 生产链路使用项目原生 Python 实现，不调用或复制运行 Node.js skill，不新增 Node.js
-  运行时依赖。
+- 生产链路使用项目原生 Python 实现，不调用随 Goal 保存的 Node.js 参考快照，不新增
+  Node.js 运行时依赖。
 - 智谱端点当前没有公开协议文档。未知字段或 `unit` 必须显式降级，禁止靠数组顺序、
   `number` 或重置时间大小推断窗口类型。
 

@@ -1,10 +1,10 @@
 # Roadmap
 
-最后核对：2026-09-16 16:05（北京时间）。
+最后核对：2026-09-16 16:23（北京时间）。
 
-时间戳取自系统命令：`[System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date),
-'China Standard Time')`。本机 git bash 无时区数据库，`TZ=Asia/Shanghai date` 会返回
-UTC 时间，不可用于填记录；17:15 与 17:53 两条取自源码文件的修改时间，17:58 一条取自
+本次时间戳通过 `TZ=Asia/Shanghai date "+%Y-%m-%d %H:%M"` 获取。早期 Windows 环境
+记录使用 `[System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date),
+'China Standard Time')`；17:15 与 17:53 两条取自源码文件的修改时间，17:58 一条取自
 冒烟响应的 `updated_at_epoch` 反推的北京时间。
 
 ## 当前阶段
@@ -15,6 +15,11 @@ v0.1 已完成并通过软件与实机验收。v0.2 已开始，当前完成智�
 本版本。
 
 ## 已完成
+
+- 2026-09-16 16:23：将 v0.2 智谱查询参考脚本快照保存到
+  `goals/references/glm-query-usage.mjs`，并把 Goal 的外部 Skill 路径改为仓库内相对路径；
+  另一台电脑无需安装 `glm-stats` skill 即可核对配置发现、请求端点、认证头和 `unit`
+  映射。该文件只作施工参考，生产链路仍须使用项目原生 Python 实现。
 
 - 2026-09-16 16:05：调整 Goal 文档生命周期：`goals/` 不再被 Git 忽略，开发期间纳入
   版本控制；全部验收完成并将结果同步到路线图后删除，施工过程继续由 Git 历史保留。
