@@ -26,6 +26,7 @@ build/
 .idea/
 .codex/
 .claude/
+/.codeartsdoer/
 .DS_Store
 Thumbs.db
 
