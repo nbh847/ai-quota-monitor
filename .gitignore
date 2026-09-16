@@ -1,0 +1,36 @@
+# 本地配置与敏感信息
+.env
+.env.*
+!.env.example
+**/secrets.h
+!**/secrets.example.h
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 任务临时文件
+.tmp/
+
+# Arduino 与 PlatformIO 构建产物
+.pio/
+build/
+*.bin
+*.elf
+*.map
+
+# 编辑器、系统与 Agent 本地配置
+.vscode/
+.idea/
+.codex/
+.claude/
+.DS_Store
+Thumbs.db
+
+# 不提交的设计草稿
+/docs/drafts/
+
+# 不提交的本地 Goal 施工文档
+/goals/
