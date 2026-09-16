@@ -81,29 +81,30 @@ static unsigned long msUntil(unsigned long due, unsigned long now) {
 }
 
 // NetworkTask（Core 0）：Wi-Fi 状态机与数据拉取的唯一所有者。
-// 成功时整体提交新快照；失败只更新设备侧状态，保留最近一次有效快照继续显示。
+// 服务商索引在请求开始时锁定：成功提交到该页快照，失败只标记该页，
+// 旧页的迟到响应不会覆盖新页。切页后立即补拉一次新页数据。
 static void networkTask(void*) {
   waitForTaskStart();
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  appSetLinkState(LinkState::Connecting);
+  appSetWifiConnecting(true);
 
   bool wifiWasConnected = false;
   bool agentWasUp = false;
   int retryBeginLeft = WIFI_RETRY_BEGIN_MS / WIFI_CHECK_MS;
   unsigned long fetchDue = 0;
+  uint8_t lastPageIndex = PROVIDER_COUNT;  // 无效初值：首轮必然按切页处理
 
   while (true) {
     if (WiFi.status() != WL_CONNECTED) {
       if (wifiWasConnected) {
         wifiWasConnected = false;
-        // 运行时断线：Agent 必然不可达，但上次有效快照继续留在屏幕上。
-        appMarkAgentDown();
+        // 运行时断线：各页最近有效快照继续留在屏幕上。
+        appSetWifiConnecting(true);
         agentWasUp = false;
         Serial.println("WiFi disconnected");
       }
-      appSetLinkState(LinkState::Connecting);
       // ESP32 内部重试耗尽后会停在未连接状态，这里按受控间隔重启连接流程。
       if (--retryBeginLeft <= 0) {
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -116,10 +117,16 @@ static void networkTask(void*) {
     if (!wifiWasConnected) {
       wifiWasConnected = true;
       retryBeginLeft = WIFI_RETRY_BEGIN_MS / WIFI_CHECK_MS;
-      appSetLinkState(LinkState::Connecting);
+      appSetWifiConnecting(false);
       Serial.print("ESP32 IP: ");
       Serial.println(WiFi.localIP());
       fetchDue = millis();  // 首次上线或恢复后立刻补取一次
+    }
+
+    const uint8_t pageIndex = appProviderIndex();
+    if (pageIndex != lastPageIndex) {
+      lastPageIndex = pageIndex;
+      fetchDue = millis();  // 切页后立即拉取新页数据
     }
 
     const unsigned long now = millis();
@@ -133,13 +140,13 @@ static void networkTask(void*) {
     }
 
     QuotaSnapshot snapshot{};
-    const bool ok = netFetchOnce(snapshot);
+    const bool ok = netFetchOnce(pageIndex, snapshot);
     if (ok) {
-      appCommitSnapshot(snapshot);
+      appCommitSnapshot(pageIndex, snapshot);
       if (!agentWasUp) Serial.println("Agent connected");
       agentWasUp = true;
     } else {
-      appMarkAgentDown();
+      appMarkAgentDown(pageIndex);
       if (agentWasUp) Serial.println("Agent unavailable");
       agentWasUp = false;
     }
@@ -157,10 +164,11 @@ static void uiTask(void*) {
     if (appTakeNextPage()) {
       const uint8_t before = appProviderIndex();
       appNextProvider();
-      // 首版服务商列表只有 Codex，切换后索引不变；仍打印事件，
-      // 便于实机核对"一次按下只触发一次"这条验收项。
+      const uint8_t after = appProviderIndex();
+      // 切页后立即触发新页拉取由 NetworkTask 检测索引变化完成；
+      // 这里打印事件便于实机核对"一次按下只触发一次"。
       Serial.printf("BOOT event: provider %u -> %u (%s)\n", (unsigned)before,
-                    (unsigned)appProviderIndex(), appProviderId());
+                    (unsigned)after, appProviderId(after));
     }
 
     uiDraw(appTakeState());
@@ -198,13 +206,16 @@ static unsigned stackHigh(TaskHandle_t handle) {
 
 void reportDiagnostics() {
   DisplayState state = appTakeState();
+  const uint8_t index = state.providerIndex % PROVIDER_COUNT;
+  const ProviderState& current = state.providers[index];
   const char* link = "OFF";
-  if (state.link == LinkState::Up) link = "UP";
-  if (state.link == LinkState::Connecting) link = "WIFI";
+  if (state.wifiConnecting) link = "WIFI";
+  if (current.link == LinkState::Up) link = "UP";
 
-  Serial.printf("diag heap=%uKB net=%uB ui=%uB in=%uB link=%s win=%u sync=%s\n",
+  Serial.printf("diag heap=%uKB net=%uB ui=%uB in=%uB page=%u(%s) link=%s win=%u sync=%s\n",
                 (unsigned)(ESP.getFreeHeap() / 1024),
                 stackHigh(networkTaskHandle), stackHigh(uiTaskHandle),
-                stackHigh(inputTaskHandle), link, state.snapshot.windowCount,
-                state.snapshot.syncLabel[0] != '\0' ? state.snapshot.syncLabel : "--:--");
+                stackHigh(inputTaskHandle), (unsigned)index,
+                PROVIDERS[index].id, link, current.snapshot.windowCount,
+                current.snapshot.syncLabel[0] != '\0' ? current.snapshot.syncLabel : "--:--");
 }

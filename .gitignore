@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+pc-agent/config.json
 **/secrets.h
 !**/secrets.example.h
 

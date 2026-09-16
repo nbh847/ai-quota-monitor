@@ -35,12 +35,13 @@ void drawStrRight(const char* text, int rightX, int y) {
   oled.drawStr(rightX - oled.getStrWidth(text) + 1, y, text);
 }
 
-// 页首状态：设备侧连接状态优先于 Agent 报告的业务状态。
-const char* statusLabel(const DisplayState& state) {
-  if (state.link == LinkState::Connecting) return "WIFI";
-  if (state.link == LinkState::AgentDown) return "OFF";
+// 页首状态：Wi-Fi 连接状态优先于该页 Agent 链路与业务状态。
+const char* statusLabel(const DisplayState& state, uint8_t index) {
+  if (state.wifiConnecting) return "WIFI";
+  const ProviderState& current = state.providers[index];
+  if (current.link == LinkState::AgentDown) return "OFF";
 
-  const char* status = state.snapshot.status;
+  const char* status = current.snapshot.status;
   if (strcmp(status, "ok") == 0) return "OK";
   if (strcmp(status, "auth_required") == 0) return "LOGIN";
   if (strcmp(status, "invalid_data") == 0) return "BAD";
@@ -95,9 +96,8 @@ void drawWindow(const QuotaWindow& win, int barY, int labelY, int resetY) {
 }
 
 // 页脚：数据新鲜时显示 SYNC HH:MM；过期后保留旧数据并显示 STALE Nm。
-void drawFooter(const DisplayState& state) {
+void drawFooter(const QuotaSnapshot& snap) {
   int64_t staleSec = -1;
-  const QuotaSnapshot& snap = state.snapshot;
 
   if (strcmp(snap.status, "stale") == 0) {
     // 本机每 10s 轮询会不断取到新响应，陈旧判断优先采信 Agent 报告的快照年龄。
@@ -119,6 +119,26 @@ void drawFooter(const DisplayState& state) {
                RIGHT_EDGE, FOOTER_BASELINE);
 }
 
+// 页首标题。中文标题用文泉驿 12px 字体按 UTF-8 绘制（drawStr 无法处理
+// 多字节字符），绘制完成后立即恢复英文字体，不影响本页其余文字和
+// Codex 英文页。字号选择见 .tmp 字体验证：gb2312a 含「智」「谱」两字形。
+// 中文基线独立成常量：12px 汉字比 6x10 英文高，实机若发现笔画被页首
+// 裁剪或压到分隔线，只调整该值。
+const int CJK_TITLE_BASELINE = 10;
+
+void drawTitle(const DisplayState& state, uint8_t index) {
+  const ProviderEntry& provider = PROVIDERS[index];
+  if (provider.cjkTitle) {
+    oled.setFont(u8g2_font_wqy12_t_gb2312a);
+    oled.drawUTF8(MARGIN_X, CJK_TITLE_BASELINE, provider.displayName);
+    oled.setFont(u8g2_font_6x10_tf);
+    return;
+  }
+  char name[16];
+  upperCopy(name, sizeof(name), provider.displayName);
+  oled.drawStr(MARGIN_X, HEADER_BASELINE, name);
+}
+
 }  // namespace
 
 void uiDraw(const DisplayState& state) {
@@ -126,18 +146,16 @@ void uiDraw(const DisplayState& state) {
   oled.setDrawColor(1);
 
   const uint8_t index = state.providerIndex % PROVIDER_COUNT;
-  const QuotaSnapshot& snap = state.snapshot;
+  const QuotaSnapshot& snap = state.providers[index].snapshot;
 
   oled.setFont(u8g2_font_6x10_tf);
-  char name[16];
-  upperCopy(name, sizeof(name), PROVIDERS[index].displayName);
-  oled.drawStr(MARGIN_X, HEADER_BASELINE, name);
+  drawTitle(state, index);
 
   char plan[16];
   upperCopy(plan, sizeof(plan), snap.plan[0] != '\0' ? snap.plan : "--");
   oled.drawStr(PLAN_X, HEADER_BASELINE, plan);
 
-  drawStrRight(statusLabel(state), RIGHT_EDGE, HEADER_BASELINE);
+  drawStrRight(statusLabel(state, index), RIGHT_EDGE, HEADER_BASELINE);
   oled.drawLine(MARGIN_X, DIVIDER_Y, RIGHT_EDGE, DIVIDER_Y);
 
   oled.setFont(u8g2_font_5x8_tf);
@@ -151,7 +169,7 @@ void uiDraw(const DisplayState& state) {
     drawWindow(snap.windows[i], barY, labelY, resetY);
   }
 
-  drawFooter(state);
+  drawFooter(snap);
   oled.sendBuffer();
 }
 

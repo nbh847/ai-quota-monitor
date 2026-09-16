@@ -1,0 +1,6 @@
+{
+  "zhipu": {
+    "base_url": "https://open.bigmodel.cn/api/anthropic",
+    "api_key": "YOUR_ZHIPU_API_KEY"
+  }
+}

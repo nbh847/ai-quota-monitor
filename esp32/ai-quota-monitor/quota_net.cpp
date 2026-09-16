@@ -5,7 +5,7 @@
 #include <esp_timer.h>
 #include "../config.h"
 
-#include "app_state.h"
+#include "models.h"
 
 namespace {
 
@@ -102,8 +102,9 @@ bool parseQuota(const String& body, QuotaSnapshot& out) {
 
 }  // namespace
 
-bool netFetchOnce(QuotaSnapshot& out) {
-  const char* providerId = appProviderId();
+bool netFetchOnce(uint8_t providerIndex, QuotaSnapshot& out) {
+  if (providerIndex >= PROVIDER_COUNT) return false;
+  const char* providerId = PROVIDERS[providerIndex].id;
   if (providerId == nullptr) return false;
 
   String endpoint = QUOTA_AGENT_BASE_URL "/api/v1/quotas/";

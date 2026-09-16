@@ -34,7 +34,7 @@ void safetyHalt() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("AI Quota Monitor v0.1");
+  Serial.println("AI Quota Monitor v0.2");
 #if !CONFIG_SECRETS_PRESENT
   Serial.println("WARNING: esp32/secrets.h missing, using placeholder config; copy esp32/secrets.example.h to esp32/secrets.h and fill in real values");
 #endif
@@ -42,6 +42,17 @@ void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
   oled.begin();
   inputInit();
+
+  // 中文字形自检：v0.2 智谱页标题依赖文泉驿字体的「智」「谱」两字形。
+  // 缺字时标题会显示为空白，这里在串口给出可核对的证据。
+  oled.setFont(u8g2_font_wqy12_t_gb2312a);
+  const int glyphZhi = u8g2_GetGlyphWidth(oled.getU8g2(), 0x667A);
+  const int glyphPu = u8g2_GetGlyphWidth(oled.getU8g2(), 0x8C31);
+  oled.setFont(u8g2_font_6x10_tf);
+  Serial.printf("CJK glyph check: zhi=%d pu=%d\n", glyphZhi, glyphPu);
+  if (glyphZhi <= 0 || glyphPu <= 0) {
+    Serial.println("WARNING: CJK glyph missing, zhipu title will be blank");
+  }
 
   // 初始化期的唯一一次非 UiTask 绘制：任务启动前给出可见反馈，避免屏幕空白。
   uiDrawBoot();

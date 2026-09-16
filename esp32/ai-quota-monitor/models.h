@@ -2,16 +2,18 @@
 
 #include <Arduino.h>
 
-// 服务商条目：BOOT 按键按列表顺序循环切换。v0.1 只有 Codex，
-// 但导航逻辑保持通用，后续新增服务商只追加条目并同步 PROVIDER_COUNT。
+// 服务商条目：BOOT 按键按列表顺序循环切换。
+// v0.2 固定 Codex -> Zhipu；新增服务商只追加条目并同步 PROVIDER_COUNT。
 struct ProviderEntry {
   const char* id;          // 与 PC Agent 的 provider_id 一致，拼进请求路径
-  const char* displayName; // 页首标题
+  const char* displayName; // 页首标题；cjkTitle 为 true 时是 UTF-8 中文
+  bool cjkTitle;           // 页首标题需要中文字体绘制
 };
 
-constexpr size_t PROVIDER_COUNT = 1;
+constexpr size_t PROVIDER_COUNT = 2;
 constexpr const ProviderEntry PROVIDERS[PROVIDER_COUNT] = {
-  {"codex", "Codex"},
+  {"codex", "Codex", false},
+  {"zhipu", "智谱", true},
 };
 
 // 单个额度窗口。PC Agent 已完成归一化：比例已 clamp 到 0..100，

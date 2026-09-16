@@ -9,6 +9,7 @@ namespace {
 SemaphoreHandle_t stateLock;
 
 // 设备当前状态。所有对外读写都必须持有 stateLock，UiTask 只在锁内拷贝。
+// 每个服务商保存独立的快照与链路状态，切页和拉取期间互不串数据。
 DisplayState state{};
 
 bool appIsReady = false;
@@ -16,6 +17,10 @@ bool appIsReady = false;
 // BOOT 事件队列：只记录"按下过"这个事实，重复按下不会连续跳页。
 constexpr unsigned kPageQueueLen = 2;
 QueueHandle_t pageQueue;
+
+uint8_t clampProviderIndex(uint8_t index) {
+  return index < PROVIDER_COUNT ? index : 0;
+}
 
 }  // namespace
 
@@ -30,7 +35,10 @@ bool appInit() {
     return false;
   }
 
-  state.link = LinkState::Connecting;
+  state.wifiConnecting = true;
+  for (size_t i = 0; i < PROVIDER_COUNT; i++) {
+    state.providers[i].link = LinkState::AgentDown;
+  }
   state.providerIndex = 0;
   appIsReady = true;
   return true;
@@ -40,22 +48,23 @@ bool appReady() {
   return appIsReady;
 }
 
-void appSetLinkState(LinkState linkState) {
+void appSetWifiConnecting(bool connecting) {
   xSemaphoreTake(stateLock, portMAX_DELAY);
-  state.link = linkState;
+  state.wifiConnecting = connecting;
   xSemaphoreGive(stateLock);
 }
 
-void appCommitSnapshot(const QuotaSnapshot& snapshot) {
+void appCommitSnapshot(uint8_t providerIndex, const QuotaSnapshot& snapshot) {
   xSemaphoreTake(stateLock, portMAX_DELAY);
-  state.snapshot = snapshot;
-  state.link = LinkState::Up;
+  const uint8_t index = clampProviderIndex(providerIndex);
+  state.providers[index].snapshot = snapshot;
+  state.providers[index].link = LinkState::Up;
   xSemaphoreGive(stateLock);
 }
 
-void appMarkAgentDown() {
+void appMarkAgentDown(uint8_t providerIndex) {
   xSemaphoreTake(stateLock, portMAX_DELAY);
-  state.link = LinkState::AgentDown;
+  state.providers[clampProviderIndex(providerIndex)].link = LinkState::AgentDown;
   xSemaphoreGive(stateLock);
 }
 
@@ -75,7 +84,6 @@ uint8_t appProviderIndex() {
 
 void appNextProvider() {
   xSemaphoreTake(stateLock, portMAX_DELAY);
-  // 循环取模：PROVIDER_COUNT 为 1 时索引保持为 0，按键不产生任何变化。
   state.providerIndex = (state.providerIndex + 1) % PROVIDER_COUNT;
   xSemaphoreGive(stateLock);
 }
@@ -92,8 +100,6 @@ bool appTakeNextPage() {
   return xQueueReceive(pageQueue, &event, 0) == pdTRUE;
 }
 
-const char* appProviderId() {
-  uint8_t index = appProviderIndex();
-  if (index >= PROVIDER_COUNT) index = 0;
-  return PROVIDERS[index].id;
+const char* appProviderId(uint8_t providerIndex) {
+  return PROVIDERS[clampProviderIndex(providerIndex)].id;
 }

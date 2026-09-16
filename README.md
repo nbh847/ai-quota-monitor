@@ -2,13 +2,12 @@
 
 基于 ESP32-S3 和 OLED 的 AI 服务商额度监控显示器。
 
-项目已完成 Codex 剩余额度、重置时间等关键信息的显示，并通过 BOOT 按键预留不同
-服务商之间的切换入口。v0.2 正在增加智谱 Token 额度；商汤日日新、OpenRouter 免费
-额度等服务商列入后续版本。
+项目已完成 Codex 与智谱的剩余额度、重置时间显示，支持通过 BOOT 按键在两个服务商
+页面间切换。商汤日日新、OpenRouter 免费额度等服务商列入后续版本。
 
-> 当前状态：v0.1 已完成。PC Agent 已通过自动测试与真实额度 HTTP 验证；ESP32-S3
-> 固件已在 Arduino IDE 中编译、烧录，并完成 Codex 5H／7D 显示、BOOT、断网、过期
-> 状态、错误响应与恢复路径的实机验收。v0.2 已完成智谱接入设计，代码尚未实现。
+> 当前状态：v0.2 已完成。PC Agent 的 81 项单元测试与 Codex／智谱真实 HTTP 冒烟
+> 均通过；固件已完成 Arduino IDE 编译、烧录，以及双服务商页面、BOOT 切换、断网、
+> 过期、错误恢复和中文布局实机验收。
 
 ## 项目目标
 
@@ -63,29 +62,26 @@ SYNC          15:55
 ## 数据流
 
 ```text
-ChatGPT 登录态 (Codex App Server, 仅本地 stdio；只读检查不强制刷新 Token)
+ChatGPT 登录态 → codex_client.py → Codex 独立缓存
+pc-agent/config.json → zhipu_client.py → 智谱独立缓存
     ↓
-pc-agent/codex_client.py   适配器，只解析 rateLimitsByLimitId.codex
+pc-agent/monitor.py        /api/v1/quotas/codex 与 /api/v1/quotas/zhipu
     ↓
-pc-agent/quotas.py         归一化 + 内存缓存 + 3 分钟过期判断
+esp32 固件                 按当前页面轮询，分服务商保存独立快照
     ↓
-pc-agent/monitor.py        局域网 HTTP 只读接口 /api/v1/quotas/codex
-    ↓
-esp32 固件                 10 秒轮询，成功时整体替换快照
-    ↓
-SH1106 128x64 OLED         单页显示 5H 与 7D
+SH1106 128x64 OLED         BOOT 切换 Codex／智谱双窗口页面
 ```
 
-凭据只留在 PC 侧的 ChatGPT 登录态里，固件不保存密码、Token 或真实网络地址；
-v0.1 的局域网 HTTP 接口不设应用层鉴权，只允许在可信局域网使用，不应暴露到公网或
-不受信任网络；固件内不保存长期账号凭据。
+Codex 凭据留在 PC 侧 ChatGPT 登录态，智谱 Key 留在被 Git 忽略的
+`pc-agent/config.json`；固件不保存服务商密码或 Token。局域网 HTTP 接口不设应用层
+鉴权，只允许在可信局域网使用，不应暴露到公网或不受信任网络。
 
 ## 后续服务商
 
 | 服务商 | 计划版本 | 状态 |
 | --- | --- | --- |
 | Codex | v0.1 | 已完成并通过实机验收 |
-| 智谱 | v0.2 | 设计已完成，代码待实现 |
+| 智谱 | v0.2 | 已完成并通过实机验收 |
 | 商汤日日新 | v0.3 | 待调研数据来源和额度口径 |
 | OpenRouter 免费额度 | v0.4 | 待调研免费模型和额度口径 |
 
@@ -102,14 +98,16 @@ v0.1 的局域网 HTTP 接口不设应用层鉴权，只允许在可信局域网
 - PC 侧：进入 `pc-agent/` 后执行 `python -m venv .venv`、
   `.venv/Scripts/python -m pip install -r requirements.txt`，再运行
   `.venv/Scripts/python monitor.py`（默认 `0.0.0.0:8767`，仅标准库，无第三方依赖）。
+- 智谱配置：编辑本地 `pc-agent/config.json`，填写 `zhipu.api_key`；该文件已被 Git
+  忽略，仓库中的 `pc-agent/config.example.json` 仅作为安全模板。
 - 设备侧：在 Arduino IDE 中打开 `esp32/ai-quota-monitor/ai-quota-monitor.ino`，先
   Verify 再 Upload。依赖 U8g2 与 ArduinoJson。
 - 本地配置：把 `esp32/secrets.example.h` 复制为 `esp32/secrets.h` 并填写真实值。
   没有 `secrets.h` 时不会仅因缺少配置头文件中断 Verify，但设备按占位配置启动、无法
   联网，启动时会在串口打印一条 WARNING；修改本地配置后需要重新 Verify 与 Upload。
 
-v0.1 已完成 Arduino IDE 编译、烧录，以及 Wi-Fi、PC Agent、额度解析、OLED 页面、
-BOOT 按键、断网、过期状态、错误响应与恢复的实机验证。
+v0.2 已完成 Arduino IDE 编译、烧录，以及 Codex／智谱页面、BOOT 按键、断网、过期
+状态、错误响应、恢复和中文布局的实机验证。
 
 ## 文档
 

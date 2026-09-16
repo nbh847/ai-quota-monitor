@@ -5,9 +5,9 @@
 本项目是一个基于 ESP32-S3 + OLED 的 AI 服务商额度监控显示器。首版只验证 Codex
 额度展示；后续通过独立服务商适配器增加智谱、商汤日日新、OpenRouter 等服务商。
 
-当前状态：PC Agent 与 ESP32-S3 固件代码均已写完，PC 侧 41 项单元测试与本机 HTTP
-冒烟验证通过；固件已在 Arduino IDE 中编译、烧录，并完成 Codex 双窗口、BOOT、断网、
-过期状态、错误响应与恢复路径的实机验收。v0.1 已完成。
+当前状态：v0.2 已完成。PC 侧 81 项单元测试、Codex 与智谱真实 HTTP 冒烟均通过；
+固件 `-fsyntax-only` 只读语法自检 7 个翻译单元通过，并已完成 Arduino IDE 编译、烧录
+以及 Codex／智谱页面、BOOT 双页切换、断网、过期、错误恢复和中文布局实机验收。
 
 ## 文档入口与状态纪律
 
@@ -44,8 +44,9 @@
 
 ## 验证要求
 
-- PC Agent 有 41 项单元测试：在 `pc-agent/` 下运行 `.venv/Scripts/python -m unittest discover -s
-  tests -q`；同时运行 `.venv/Scripts/python -m py_compile monitor.py quotas.py codex_client.py`。
+- PC Agent 有 81 项单元测试：在 `pc-agent/` 下运行 `.venv/Scripts/python -m unittest discover -s
+  tests -q`；同时运行 `.venv/Scripts/python -m py_compile monitor.py quotas.py codex_client.py
+  zhipu_client.py zhipu_quotas.py`。
 - 固件没有编译入口：本开发环境未安装 arduino-cli，Verify 与 Upload 由人工在 Arduino IDE
   中完成；必须在交付时说明开发板、草图以及串口或屏幕实机结果。本机已安装
   `xtensa-esp-elf-g++` 与 ESP32 Core，可复用 Core 的 flags 做只读 `-fsyntax-only`

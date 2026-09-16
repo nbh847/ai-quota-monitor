@@ -124,16 +124,18 @@ def normalize_rate_limits(raw):
     return {"plan": plan, "windows": windows}
 
 
-class QuotaCache:
-    """Codex 额度缓存与调度线程。
+class BaseQuotaCache:
+    """额度缓存公共骨架：状态、快照存储、stale 判定与 HTTP 渲染。
 
-    调度循环：确保子进程存活（有限退避重启）→ 必要时校验登录类型 →
-    读取额度并归一化入库；通知与 60 秒兜底都会唤醒查询。
+    调度循环由子类实现（_run_loop）；Codex 走 App Server 子进程调度，
+    智谱走纯 HTTP 轮询，两者共享同一份统一快照契约。
     """
 
-    def __init__(self, client_factory, epoch=time.time, monotonic=time.monotonic,
+    provider_id = None
+    provider_name = None
+
+    def __init__(self, epoch=time.time, monotonic=time.monotonic,
                  poll_interval=POLL_INTERVAL_SEC, stale_after=STALE_AFTER_SEC):
-        self._client_factory = client_factory
         self._epoch = epoch
         self._monotonic = monotonic
         self._poll_interval = poll_interval
@@ -145,7 +147,6 @@ class QuotaCache:
         self._updated_at_epoch = None  # 成功时刻的本机 unix 秒
         self._status = STATUS_UNAVAILABLE
         self._message = "not started"
-        self._auth_confirmed = False
 
         self._wake = threading.Event()
         self._stop_flag = False
@@ -155,15 +156,12 @@ class QuotaCache:
 
     def start(self):
         self._thread = threading.Thread(
-            target=self._run_loop, name="quota-scheduler", daemon=True)
+            target=self._run_loop,
+            name=f"quota-scheduler-{self.provider_id}", daemon=True)
         self._thread.start()
 
     def stop(self):
         self._stop_flag = True
-        self._wake.set()
-
-    def on_rate_limits_updated(self):
-        """App Server 通知回调：额度变化，立即安排一次查询。"""
         self._wake.set()
 
     # ---- 状态与渲染 ----
@@ -191,8 +189,8 @@ class QuotaCache:
             message = "data is stale; last successful update too old"
 
         body = {
-            "provider_id": PROVIDER_ID,
-            "provider_name": PROVIDER_NAME,
+            "provider_id": self.provider_id,
+            "provider_name": self.provider_name,
             "plan": None,
             "status": status,
             "windows": [],
@@ -217,6 +215,47 @@ class QuotaCache:
                 "reset_at_local": _format_local_time(resets_at),
             })
         return body
+
+    # ---- 子类接口 ----
+
+    def _run_loop(self):
+        raise NotImplementedError
+
+    def _set_state(self, status, message):
+        with self._lock:
+            self._status = status
+            self._message = message
+
+    def _store_success(self, snapshot):
+        """成功归一化后入库：整体替换快照并刷新时间与状态。"""
+        with self._lock:
+            self._snapshot = snapshot
+            self._snapshot_at = self._monotonic()
+            self._updated_at_epoch = int(self._epoch())
+            self._status = STATUS_OK
+            self._message = None
+
+
+class QuotaCache(BaseQuotaCache):
+    """Codex 额度缓存与调度线程。
+
+    调度循环：确保子进程存活（有限退避重启）→ 必要时校验登录类型 →
+    读取额度并归一化入库；通知与 60 秒兜底都会唤醒查询。
+    """
+
+    provider_id = PROVIDER_ID
+    provider_name = PROVIDER_NAME
+
+    def __init__(self, client_factory, epoch=time.time, monotonic=time.monotonic,
+                 poll_interval=POLL_INTERVAL_SEC, stale_after=STALE_AFTER_SEC):
+        super().__init__(epoch=epoch, monotonic=monotonic,
+                         poll_interval=poll_interval, stale_after=stale_after)
+        self._client_factory = client_factory
+        self._auth_confirmed = False
+
+    def on_rate_limits_updated(self):
+        """App Server 通知回调：额度变化，立即安排一次查询。"""
+        self._wake.set()
 
     # ---- 调度循环 ----
 
@@ -297,12 +336,7 @@ class QuotaCache:
         except NormalizationError:
             self._set_state(STATUS_INVALID_DATA, "codex quota data invalid")
             return False
-        with self._lock:
-            self._snapshot = normalized
-            self._snapshot_at = self._monotonic()
-            self._updated_at_epoch = int(self._epoch())
-            self._status = STATUS_OK
-            self._message = None
+        self._store_success(normalized)
         return True
 
     def _check_auth(self, client):
@@ -324,8 +358,3 @@ class QuotaCache:
         self._auth_confirmed = False
         self._set_state(STATUS_AUTH_REQUIRED,
                         "ChatGPT login required; run codex login")
-
-    def _set_state(self, status, message):
-        with self._lock:
-            self._status = status
-            self._message = message

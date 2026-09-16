@@ -44,3 +44,26 @@ def rate_limits_result(primary_used=40, secondary_used=91,
 def jsonrpc_response(rid, result):
     import json
     return json.dumps({"jsonrpc": "2.0", "id": rid, "result": result})
+
+# ---- 智谱 quota/limit 固定样例（字段取自 2026-09-16 冻结的协议） ----
+
+ZHIPU_RESET_5H_MS = 1789470000000      # 毫秒时间戳样例（仅用于固定样例）
+ZHIPU_RESET_1W_MS = 1789940000000
+ZHIPU_RESET_5H_SEC = 1789470000
+ZHIPU_RESET_1W_SEC = 1789940000
+
+
+def zhipu_limit_item(unit, percentage, next_reset_ms, item_type="TOKENS_LIMIT"):
+    return {"type": item_type, "unit": unit, "percentage": percentage,
+            "nextResetTime": next_reset_ms}
+
+
+def zhipu_quota_result(level="pro", limits=None):
+    """构造智谱 quota/limit 响应；默认含 MCP 条目夹在两条 Token 窗口之间。"""
+    if limits is None:
+        limits = [
+            zhipu_limit_item(3, 40, ZHIPU_RESET_5H_MS),
+            zhipu_limit_item(5, 10, ZHIPU_RESET_1W_MS, item_type="TIME_LIMIT"),
+            zhipu_limit_item(6, 90, ZHIPU_RESET_1W_MS),
+        ]
+    return {"data": {"level": level, "limits": limits}}
