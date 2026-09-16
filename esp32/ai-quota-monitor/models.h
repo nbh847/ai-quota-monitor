@@ -18,10 +18,14 @@ constexpr const ProviderEntry PROVIDERS[PROVIDER_COUNT] = {
 
 // 单个额度窗口。PC Agent 已完成归一化：比例已 clamp 到 0..100，
 // resetLabel 是 PC 端格式化的本地时间 "MM-DD HH:MM"，固件不再解析 epoch。
+// resetInSec 是 PC Agent 实时计算的距重置时刻剩余秒数（已 clamp 到 >= 0），
+// hasResetInSec 为 false 表示字段缺失或无效，显示层只画绝对时间。
 struct QuotaWindow {
   char label[8];      // "5H" / "7D"，最多保留 7 个字符 + 结尾 \0
   char resetLabel[16]; // "09-15 17:52"，最多保留 15 个字符 + 结尾 \0
   int16_t remainingPercent; // 0..100
+  uint32_t resetInSec;      // 距重置时刻的剩余秒数，仅在 hasResetInSec 为 true 时有效
+  bool hasResetInSec;       // reset_in_sec 字段是否存在且有效
 };
 
 // PC Agent 一次响应最多返回 2 个窗口（primary / secondary）。

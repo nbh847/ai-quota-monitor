@@ -1,6 +1,6 @@
 # Roadmap
 
-最后核对：2026-09-16 20:49（北京时间）。
+最后核对：2026-09-16 21:49（北京时间）。
 
 时间戳通过 PowerShell
 `[System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date), 'China Standard Time')`
@@ -13,9 +13,15 @@
 v0.2 已完成并通过软件与实机验收。PC 侧 81 项单元测试、Codex 与智谱真实 HTTP 冒烟
 均通过；固件 `-fsyntax-only` 只读语法自检 7 个翻译单元通过，并完成 Arduino IDE 编译、
 烧录，以及 Codex／智谱页面、BOOT 双页切换、断网、过期、错误恢复和中文布局实机验收。
-智谱 MCP 月度额度、模型用量和工具统计不纳入本版本。
+智谱 MCP 月度额度、模型用量和工具统计不纳入本版本。额度重置倒计时显示已完成软件与
+实机验收；Codex 与智谱均保留绝对重置时间，并显示一位小数剩余时长。
 
 ## 已完成
+
+- 2026-09-16 21:49：额度重置倒计时功能完成。Codex `5H`／`7D` 与智谱 `5H`／`1W`
+  在原绝对重置时间后分别显示小时／天倒计时；有限负数归零，异常字段安全降级。Python
+  语法检查、PC Agent 81 项单测、固件 `-fsyntax-only`、Arduino IDE 编译、Upload 和
+  实机显示均通过，用户确认其他相关路径正常。已同步 README，并按规则关闭和清理 Goal。
 
 - 2026-09-16 20:49：用户确认 v0.2 其余实机项目均无问题，断网、3 分钟过期、错误响应、
   恢复和中文布局验收通过。复跑 Python 语法检查与完整单元测试，81 项全部通过（8.585s）；
@@ -108,19 +114,6 @@ v0.2 已完成并通过软件与实机验收。PC 侧 81 项单元测试、Codex
   真正的编译错误。现在缺失时回落到占位默认值，不再仅因该文件缺失中断 Verify；
   启动时在串口打印一条 WARNING。占位值不是凭据，也无法连接任何设备，整体编译与
   Upload 仍需人工验证。
-- 2026-09-15 18:12：补齐页首对 Agent 报告 `unavailable` 状态的显示（`SRC`），使
-  显示层与设计文档第 4 节的五取值状态枚举一一对应；此前该状态落入 `OFF`，会把
-  "数据源取不到"误报成"设备连不上 Agent"。
-- 2026-09-15 17:58：本机 HTTP 冒烟验证通过，同步 README、设计文档和路线图。
-- 2026-09-15 17:53：实现 ESP32-S3 固件（网络拉取、字段白名单解析、共享状态、
-  BOOT 去抖、三任务调度、OLED 单页布局）。
-- 2026-09-15 17:15：实现 PC Agent（App Server 客户端、额度归一化、内存缓存、
-  HTTP 只读接口）与 37 项单元测试。
-- 2026-09-15 16:42：确认使用 ChatGPT 登录态和 Codex App Server 读取 5 小时、7 天
-  额度窗口；确认 PC Agent、ESP32 轮询、OLED 单页布局、过期状态和安全边界。
-- 2026-09-15 15:55：建立项目 README、路线图、首版设计草案和项目级 Agent 规则，
-  明确 Codex 首版范围、多服务商扩展方向、BOOT 切换入口、数据安全边界和待确认事项。
-
 ## 进行中
 
 - 当前无进行中事项。
@@ -171,6 +164,27 @@ v0.2 已完成并通过软件与实机验收。PC 侧 81 项单元测试、Codex
 - SH1106 128x64 接线、BOOT 引脚和页面布局已通过实机验收；更换硬件型号后需重新验证。
 
 ## 最近验证
+
+- 2026-09-16 21:49：用户确认额度重置倒计时的其他相关表现正常，同意标记为开发完成。
+  综合此前 PC Agent 81 项单测、固件语法检查、Arduino IDE 编译、Upload 和实机显示结果，
+  本功能通过最终验收；Goal 已关闭。
+
+- 2026-09-16 21:47：用户确认额度重置倒计时固件已成功上传到开发板，剩余时间正常显示。
+  该结果覆盖 Arduino IDE 编译、Upload 和当前页面正常显示；未明确区分 Codex／智谱页面，
+  也未单独覆盖轮询递减、BOOT、断网、过期、错误响应及恢复，相关 Goal 暂不关闭。
+
+- 2026-09-16 21:32：修复额度倒计时负数边界与 Goal 不一致的问题。固件解析有限的
+  `reset_in_sec <= 0` 时统一保存为 0，使已映射窗口显示 `(0.0h)`／`(0.0d)`；超过
+  `uint32_t` 上限、非有限值及非数值类型仍按无效字段降级。复跑 Python 语法检查与
+  PC Agent 81 项单元测试，并对改动涉及的 `quota_net.cpp`、`ui.cpp` 执行 ESP32 Core
+  `-fsyntax-only` 检查；结果均通过。该检查不替代 Arduino IDE Verify 和实机验收。
+
+- 2026-09-16 21:23：额度重置倒计时代码实施完成。固件 `models.h` 增加
+  `resetInSec`／`hasResetInSec`，`quota_net.cpp` 严格解析 `reset_in_sec`，
+  `ui.cpp` 按 `5H`→小时、`7D`／`1W`→天格式化一位小数并组合绘制重置行。PC Agent
+  81 项单测全部通过（8.594s），`py_compile` 通过；固件 `-fsyntax-only` 自检 7 个
+  翻译单元失败文件数 0（不替代 Arduino IDE Verify）。`git diff --check` 通过。
+  尚待 Arduino IDE Verify/Upload 与实机验收。
 
 - 2026-09-16 20:49：用户确认 v0.2 剩余实机项目均无问题；断网、过期、错误恢复和中文
   布局通过。复跑 Python 语法检查与 81 项单元测试，全部通过（8.585s）；`git diff --check`
@@ -261,23 +275,3 @@ v0.2 已完成并通过软件与实机验收。PC 侧 81 项单元测试、Codex
   `esp_synchronization.h`、`MutexHandle_t`、`xMutex*` 或 ESP32 本地 Unix 时间换算。
   `uiDraw` 与 `uiDrawBoot` 使用 draw color 1，低额度反白文字绘制后恢复 draw color 1。
   此记录不替代 Arduino IDE Verify 和实机验证。
-- 2026-09-15 18:35：复核新增的 BOOT 日志语句。`appProviderIndex()` 返回
-  `uint8_t`、`appProviderId()` 返回 `const char*`，两个符号都由 `app_state.h`
-  提供且 `tasks.cpp` 已包含该头文件；`Serial.printf` 在同一文件已有使用（任务创建
-  失败分支）。`uint8_t` 经变参提升会变成 `int`，已加 `(unsigned)` 强转以匹配
-  `%u`。未经过编译。
-- 2026-09-15 18:31：`git check-ignore -v` 确认 `esp32/config.h` 未被忽略规则命中
-  （可安全提交，且模板内只有占位值）；`esp32/secrets.h`、`docs/drafts/`、`goals/`
-  仍被正确忽略。待提交集合中不含 `secrets.h`、Token 或 Cookie。
-- 2026-09-15 18:12：在 `pc-agent/` 下重新运行 `python -m py_compile monitor.py
-  quotas.py codex_client.py` 通过；运行 `python -m unittest discover -s tests -q`，
-  37 项全部通过（6.957s）。
-- 2026-09-15 18:12：固件代码仍然未经过任何编译。本开发环境未安装 arduino-cli，
-  Verify 与 Upload 需人工在 Arduino IDE 中执行；OLED 版面已静态核对坐标，进度条
-  x=40 宽 86 与 x=2 起的文字块不重叠，页脚 baseline 62 在 64 高度内。
-- 2026-09-15 17:58：本机启动 `python monitor.py --host 127.0.0.1 --port 8768`，
-  `GET /api/v1/health` 返回 `{"ok": true, ...}`；`GET /api/v1/quotas/codex` 返回
-  真实登录态下的 `status=ok`、`plan=plus`、5H 与 7D 双窗口（剩余 100% / 8%）、
-  `reset_at_local`（`09-15 22:57` / `09-19 18:50`）、`updated_at_epoch` 与
-  `age_sec`。响应字段与固件字段白名单逐项一致；7D 的 8% 覆盖了低于 20% 的反白路径。
-- 2026-09-15 15:55：检查克隆后的仓库内容，确认初始仓库仅包含 README 和 LICENSE。

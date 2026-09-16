@@ -91,6 +91,20 @@ bool parseQuota(const String& body, QuotaSnapshot& out) {
       } else {
         copyBounded("--:--", win.resetLabel, sizeof(win.resetLabel));
       }
+
+      // reset_in_sec 由 PC Agent 实时计算并已 clamp 到 >= 0；固件仍按协议
+      // 对有限负数归零，避免异常上游值产生负倒计时。超过 uint32_t 上限、
+      // 非有限值及非数值类型视为无效，显示层只画绝对时间。
+      const JsonVariant resetInSecVar = obj["reset_in_sec"];
+      if (resetInSecVar.is<double>()) {
+        const double resetInSec = resetInSecVar.as<double>();
+        if (isfinite(resetInSec) && resetInSec <= 4294967295.0) {
+          win.resetInSec = resetInSec <= 0.0
+                               ? 0U
+                               : static_cast<uint32_t>(resetInSec);
+          win.hasResetInSec = true;
+        }
+      }
       snapshot.windowCount++;
     }
   }

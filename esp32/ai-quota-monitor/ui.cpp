@@ -84,6 +84,22 @@ void drawPercent(const char* text, int x, int y, int16_t percent) {
   oled.drawStr(x, y, text);
 }
 
+// 已知窗口标签到倒计时单位的映射。5H 按小时，7D／1W 按天；
+// 未明确映射的标签返回 false，显示层只画绝对时间，不猜测单位。
+bool resetUnit(const char* label, char& unit, uint32_t& divisor) {
+  if (strcmp(label, "5H") == 0) {
+    unit = 'h';
+    divisor = 3600UL;
+    return true;
+  }
+  if (strcmp(label, "7D") == 0 || strcmp(label, "1W") == 0) {
+    unit = 'd';
+    divisor = 86400UL;
+    return true;
+  }
+  return false;
+}
+
 void drawWindow(const QuotaWindow& win, int barY, int labelY, int resetY) {
   char line[16];
   snprintf(line, sizeof(line), "%s %d%%", win.label, win.remainingPercent);
@@ -92,7 +108,23 @@ void drawWindow(const QuotaWindow& win, int barY, int labelY, int resetY) {
   drawBar(barY, win.remainingPercent);
 
   oled.drawStr(MARGIN_X, resetY, "R");
-  drawStrRight(win.resetLabel, RIGHT_EDGE, resetY);
+
+  // 组合重置行 "MM-DD HH:MM (N.Nu)"：绝对时间始终保留，括号仅在
+  // reset_in_sec 有效且窗口标签已映射时附加。手动四舍五入到一位小数，
+  // 不依赖 snprintf 的浮点格式化支持。
+  char resetLine[24];
+  char unit;
+  uint32_t divisor;
+  if (win.hasResetInSec && resetUnit(win.label, unit, divisor)) {
+    const double value = static_cast<double>(win.resetInSec) /
+                         static_cast<double>(divisor);
+    const uint32_t scaled = static_cast<uint32_t>(value * 10.0 + 0.5);
+    snprintf(resetLine, sizeof(resetLine), "%s (%u.%u%c)",
+             win.resetLabel, scaled / 10U, scaled % 10U, unit);
+  } else {
+    snprintf(resetLine, sizeof(resetLine), "%s", win.resetLabel);
+  }
+  drawStrRight(resetLine, RIGHT_EDGE, resetY);
 }
 
 // 页脚：数据新鲜时显示 SYNC HH:MM；过期后保留旧数据并显示 STALE Nm。
