@@ -41,7 +41,7 @@ DisplayState appTakeState();
 uint8_t appProviderIndex();
 // BOOT 切换到下一页：按服务商列表循环，每次按下只前进一页。
 void appNextProvider();
-void appPostNextPage(); // BOOT 事件入队，只记一次
+bool appPostNextPage(); // BOOT 事件入队；成功时返回 true
 bool appTakeNextPage(); // UI 消费一次页面切换事件
 
 // 指定页服务商 ID；索引越界时回落到第 0 项。

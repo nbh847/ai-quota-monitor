@@ -88,10 +88,12 @@ void appNextProvider() {
   xSemaphoreGive(stateLock);
 }
 
-void appPostNextPage() {
-  if (pageQueue == NULL) return;
+bool appPostNextPage() {
+  if (pageQueue == NULL) return false;
   const uint8_t event = 1;
-  xQueueSend(pageQueue, &event, 0);  // 队列满时丢弃，避免按键事件堆积
+  // 队列满时丢弃，避免按键事件堆积；调用方仅在成功时唤醒 UI，
+  // 保证队列事件数与任务通知数一致。
+  return xQueueSend(pageQueue, &event, 0) == pdTRUE;
 }
 
 bool appTakeNextPage() {

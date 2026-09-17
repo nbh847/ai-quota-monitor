@@ -6,8 +6,12 @@
 额度展示；后续通过独立服务商适配器增加智谱、商汤日日新、OpenRouter 等服务商。
 
 当前状态：v0.2 已完成。PC 侧 81 项单元测试、Codex 与智谱真实 HTTP 冒烟均通过；
-固件 `-fsyntax-only` 只读语法自检 7 个翻译单元通过，并已完成 Arduino IDE 编译、烧录
+固件当时的 `-fsyntax-only` 只读语法自检通过，并已完成 Arduino IDE 编译、烧录
 以及 Codex／智谱页面、BOOT 双页切换、断网、过期、错误恢复和中文布局实机验收。
+BOOT 切页延迟的软件修复已完成：有效按键会立即唤醒 UI，切页后再立即唤醒网络任务；
+当前全部 6 个固件翻译单元的 `-fsyntax-only` 检查通过，并已重新编译、烧录。用户实测
+连续 12 次短按均在按键确认的同一毫秒切页，Codex／智谱往返正确；长按只产生一次
+检测和一次切页，BOOT 延迟缺陷已完成全部回归并关闭。详情以 `ROADMAP.md` 为准。
 
 ## 文档入口与状态纪律
 
@@ -47,7 +51,7 @@
 - PC Agent 有 81 项单元测试：在 `pc-agent/` 下运行 `.venv/Scripts/python -m unittest discover -s
   tests -q`；同时运行 `.venv/Scripts/python -m py_compile monitor.py quotas.py codex_client.py
   zhipu_client.py zhipu_quotas.py`。
-- 固件没有编译入口：本开发环境未安装 arduino-cli，Verify 与 Upload 由人工在 Arduino IDE
+- 固件没有自动编译入口：本开发环境未安装 arduino-cli，Verify 与 Upload 由人工在 Arduino IDE
   中完成；必须在交付时说明开发板、草图以及串口或屏幕实机结果。本机已安装
   `xtensa-esp-elf-g++` 与 ESP32 Core，可复用 Core 的 flags 做只读 `-fsyntax-only`
   语法检查；该检查不链接、不生成固件，不能替代 Verify，记录结果时必须注明这一点。
