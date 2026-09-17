@@ -156,7 +156,7 @@ static void networkTask(void*) {
 }
 
 // UiTask（Core 1）：运行时唯一允许执行 OLED 绘制和 sendBuffer 的任务。
-// 锁内复制完整快照，绘制在锁外进行；BOOT 事件在这里消费并切换服务商。
+// 锁内复制完整快照，绘制在锁外进行；按键事件在这里消费并切换服务商。
 // 按键通知会立即结束等待；无事件时仍按 1s 周期刷新页脚。
 static void uiTask(void*) {
   waitForTaskStart();
@@ -168,7 +168,7 @@ static void uiTask(void*) {
       const uint8_t after = appProviderIndex();
       // NetworkTask 可能正在等待下一轮检查；主动唤醒后立即检测新页并拉取。
       xTaskNotifyGive(networkTaskHandle);
-      Serial.printf("BOOT event: t=%lu provider %u -> %u (%s)\n", millis(),
+      Serial.printf("PAGE event: t=%lu provider %u -> %u (%s)\n", millis(),
                     (unsigned)before, (unsigned)after, appProviderId(after));
     }
 
@@ -178,15 +178,17 @@ static void uiTask(void*) {
   }
 }
 
-// InputTask（Core 1）：只读取去抖后的按键电平并发送页面切换事件。
+// InputTask（Core 1）：读取两颗独立去抖的按键并发送同一个页面切换事件。
 static void inputTask(void*) {
   waitForTaskStart();
 
   while (true) {
-    if (inputWasPressed()) {
+    const InputButton button = inputPressed();
+    if (button != InputButton::None) {
       const unsigned long detectedAt = millis();
       if (appPostNextPage()) {
-        Serial.printf("BOOT detected: t=%lu\n", detectedAt);
+        const char* source = button == InputButton::Boot ? "BOOT" : "GPIO13";
+        Serial.printf("%s detected: t=%lu\n", source, detectedAt);
         xTaskNotifyGive(uiTaskHandle);
       }
     }

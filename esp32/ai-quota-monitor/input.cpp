@@ -2,36 +2,57 @@
 
 namespace {
 
-constexpr int kButtonPin = 0;        // BOOT 按键，INPUT_PULLUP 上拉，按下为低电平
+constexpr uint8_t kBootButtonPin = 0;      // BOOT 按键，按下为低电平
+constexpr uint8_t kExternalButtonPin = 13; // 外接按键 OUT，按下输出高电平
 constexpr unsigned long kDebounceMs = 20;
 
-unsigned long rawChangedAtMs = 0;
-unsigned lastRaw = HIGH;            // 最近一次读取的原始电平
-unsigned stableRaw = HIGH;          // 已通过持续时间确认的稳定电平
+struct ButtonState {
+  uint8_t pin;
+  uint8_t pressedLevel;
+  unsigned long rawChangedAtMs;
+  unsigned lastRaw;
+  unsigned stableRaw;
+};
+
+ButtonState bootButton{kBootButtonPin, LOW, 0, HIGH, HIGH};
+ButtonState externalButton{kExternalButtonPin, HIGH, 0, LOW, LOW};
+
+void initButton(ButtonState& button, uint8_t mode) {
+  pinMode(button.pin, mode);
+  button.lastRaw = digitalRead(button.pin);
+  button.stableRaw = button.lastRaw;
+  button.rawChangedAtMs = millis();
+}
+
+bool wasPressed(ButtonState& button, unsigned long now) {
+  const unsigned raw = digitalRead(button.pin);
+  if (raw != button.lastRaw) {
+    button.lastRaw = raw;
+    button.rawChangedAtMs = now;
+    return false;
+  }
+
+  // 原始电平连续稳定满去抖窗口后才提交变化。只在稳定的按下沿产生事件，
+  // 长按不会重复触发；稳定释放后才能识别下一次按下。
+  if (raw != button.stableRaw && now - button.rawChangedAtMs >= kDebounceMs) {
+    button.stableRaw = raw;
+    return button.stableRaw == button.pressedLevel;
+  }
+  return false;
+}
 
 }  // namespace
 
 void inputInit() {
-  pinMode(kButtonPin, INPUT_PULLUP);
-  lastRaw = digitalRead(kButtonPin);
-  stableRaw = lastRaw;
-  rawChangedAtMs = millis();
+  initButton(bootButton, INPUT_PULLUP);
+  initButton(externalButton, INPUT_PULLDOWN);
 }
 
-bool inputWasPressed() {
+InputButton inputPressed() {
   const unsigned long now = millis();
-  const unsigned raw = digitalRead(kButtonPin);
-  if (raw != lastRaw) {
-    lastRaw = raw;
-    rawChangedAtMs = now;
-    return false;
-  }
-
-  // 原始电平连续稳定满去抖窗口后才提交变化。只在稳定的下降沿产生事件，
-  // 长按不会重复触发；稳定释放后才能识别下一次按下。
-  if (raw != stableRaw && now - rawChangedAtMs >= kDebounceMs) {
-    stableRaw = raw;
-    return stableRaw == LOW;
-  }
-  return false;
+  const bool bootPressed = wasPressed(bootButton, now);
+  const bool externalPressed = wasPressed(externalButton, now);
+  if (bootPressed) return InputButton::Boot;
+  if (externalPressed) return InputButton::External;
+  return InputButton::None;
 }
